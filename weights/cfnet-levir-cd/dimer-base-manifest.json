@@ -1,0 +1,20 @@
+{
+  "format": "dimer_hf_snapshot",
+  "formatVersion": 1,
+  "modelKey": "cfnet-levir-cd",
+  "modelId": "wifibk/CFNet",
+  "revision": "c23279428d14186d67ce199b3db358038bf37585",
+  "files": [
+    {
+      "path": "levir-cd.pth",
+      "bytes": 15805666,
+      "sha256": "22ab286b2138ab1082e04290b27cbff5abd3802375a6b2f01d4ba78ca8b0c1aa"
+    },
+    {
+      "path": "README.md",
+      "bytes": 2974,
+      "sha256": "5b8d54988a30b5ff819d7b9b6351c82dba253b8ee529f55dc79603657192c48b"
+    }
+  ],
+  "totalBytes": 15808640
+}

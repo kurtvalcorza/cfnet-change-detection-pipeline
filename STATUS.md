@@ -1,0 +1,3 @@
+# Release status
+
+Current status: **Candidate** — the `E2E` tutorial notebook `tutorials/cfnet_change_detection_colab.ipynb` has not yet executed in a supported runtime (no local pre-flight is run for this row by the maintainer's rule; the clean-runtime Kaggle execution is its first execution). The pipeline package with its adaptation contract, the vendored network, the offline unit suite, the CPU model-backed test, `MODEL_CARD.md` (MODEL_CARD_SPEC 1.1), the static validator (`tools/validate_release_assets.py`), the generator parity checks and the CI workflow exist and are green. The registry moves to **Release-grade** only when a clean-runtime run of the committed notebook blob is recorded in `docs/release-verification.md`.
