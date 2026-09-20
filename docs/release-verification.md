@@ -127,6 +127,7 @@ A known-failing default path in the supported runtime blocks release (REL11).
 
 | Notebook | Commit / notebook blob | Date (UTC) | Executor | Outcome |
 |---|---|---|---|---|
+| `cfnet_change_detection_colab.ipynb` (`E2E`) | `b92e01f` / `9e515a82` | 2026-09-20 | Kaggle Tesla T4 (`kurtvalcorza/dimer-nb2-cfnet-change-detection` v1; image `torch 2.10.0+cu128` before the pinned install, `torch 2.14.0+cu130`, `torchvision 0.29.0+cu130`, `pillow 11.3.0`, `numpy 2.5.3` after, Python 3.12.13, `cuda`) | **PASSED** — 11/11 code cells ok (1 restart after install cell); 204 files, 3880 MB fetched into a clean runtime (the Hub snapshot, the 3.8 GB tarball and the 192 extracted members); comparison test changed-class F1 / IoU (all-unchanged baseline 0 / 0): frozen 0.9352 / 0.8782 → adapted 0.9352 / 0.8783, precision 0.9423 → 0.9424, recall 0.9281 → 0.9282, accuracy 0.9822 → 0.9822 vs baseline 0.8615 (best epoch 2, validation loss 0.1162 → 0.1141, validation F1 0.9151 → 0.9137); reload parity f1_diff: 0.0, metrics_identical: True, max_abs_map_diff: 0.0; run summary and executed notebook archived under `.agent/backups/kaggle-e2e-2026-09-19/out/dimer-nb2-cfnet-change-detection/v1/evidence/` in the workspace |
 
 ## Recorded executions
 
@@ -137,11 +138,8 @@ runtime, not general estimates.
 
 | Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |
 |---|---|---|---|---|---|
+| 2026-09-20 | `b92e01f` / `9e515a82` | Kaggle Tesla T4 (`kurtvalcorza/dimer-nb2-cfnet-change-detection` v1; image `torch 2.10.0+cu128` before the pinned install, `torch 2.14.0+cu130`, `torchvision 0.29.0+cu130`, `pillow 11.3.0`, `numpy 2.5.3` after, Python 3.12.13, `cuda`) | Default sample path, `Run all` from a fresh interpreter with an empty Hugging Face cache and no repository checkout (blob SHA-1 verified against GitHub before execution); the checkpoint audited and converted in the notebook, the tarball fetched and the pinned members extracted by the notebook — the notebook's first execution anywhere | 271.0 s | **PASSED** — 11/11 code cells ok (1 restart after install cell); 204 files, 3880 MB fetched into a clean runtime (the Hub snapshot, the 3.8 GB tarball and the 192 extracted members); comparison test changed-class F1 / IoU (all-unchanged baseline 0 / 0): frozen 0.9352 / 0.8782 → adapted 0.9352 / 0.8783, precision 0.9423 → 0.9424, recall 0.9281 → 0.9282, accuracy 0.9822 → 0.9822 vs baseline 0.8615 (best epoch 2, validation loss 0.1162 → 0.1141, validation F1 0.9151 → 0.9137); reload parity f1_diff: 0.0, metrics_identical: True, max_abs_map_diff: 0.0; run summary and executed notebook archived under `.agent/backups/kaggle-e2e-2026-09-19/out/dimer-nb2-cfnet-change-detection/v1/evidence/` in the workspace |
 
 ## Current status
 
-**Candidate.** The notebook has not yet executed in any runtime: by the maintainer's rule no local GPU pre-flight is
-run for this row, so the clean-runtime execution of the committed notebook blob (REL1/REL10) is both its first
-execution and the evidence that promotes it. When it is recorded here the registry moves to **Release-grade**. Any
-later change to the carried modules or to the notebook produces a new blob, and the registry returns to
-**Candidate** until a clean run of that blob is recorded here.
+**Release-grade.** The `E2E` notebook blob `9e515a82` (committed at `b92e01f`) executed top-to-bottom in a clean Kaggle Tesla T4 runtime on 2026-09-20 (11/11 ok (1 restart after install cell), 271.0 s, 204 files, 3880 MB fetched and digest-verified inside the notebook, the checkpoint converted in the notebook) with no repository checkout — the REL1/REL10 supported-runtime evidence this file gates on. The local pre-flight rows above are what preceded it and remain history. Any later change to the carried modules or to the notebook produces a new blob, and the registry returns to **Candidate** until a clean run of that blob is recorded here.

@@ -74,7 +74,7 @@ Tests are offline and run on a CPU in seconds: crafted pickles, temporary manife
 
 ## Release status
 
-**Candidate** — the `E2E` notebook has not yet executed in a supported runtime; by the maintainer's rule no local GPU pre-flight is run for this row, so the clean-runtime Kaggle execution is its first execution and the evidence that promotes it, to be recorded in `docs/release-verification.md` and `STATUS.md`. Static and unit checks — including the standalone generator parity checks and the CPU model-backed test — are necessary but are not the evidence; the hosted run is.
+**Release-grade** — the `E2E` notebook blob `9e515a82` (committed at `b92e01f`) executed top-to-bottom in a clean Kaggle Tesla T4 runtime on 2026-09-20 (11/11 ok (1 restart after install cell), 271.0 s); the record is in `docs/release-verification.md` and `STATUS.md`. Static and unit checks — including the standalone generator parity checks — are necessary but were never the evidence; the hosted run is. A later change to the carried modules or the notebook returns the status to Candidate until re-verified.
 
 ## Licensing
 
