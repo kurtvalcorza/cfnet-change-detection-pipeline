@@ -47,7 +47,7 @@ Binary building-change maps for pairs of co-registered RGB patches at about 0.5 
 
 ###### Primary Intended Users
 
-Researchers, students and engineers evaluating bi-temporal change detection on very-high-resolution imagery; DIMER operators publishing the model profile; maintainers of the fleet who need a reference for a vendored network with a torchvision backbone and for tutorial data under academic-only terms.
+Researchers, students and engineers evaluating bi-temporal change detection on very-high-resolution imagery; DIMER operators publishing the model profile; DIMER maintainers who need a reference for a vendored network with a torchvision backbone and for tutorial data under academic-only terms.
 
 ###### Out-of-scope use cases
 
@@ -145,7 +145,7 @@ Tutorial and evaluation of CFNet building-change detection on LEVIR-CD-like pair
 
 ## Runtime
 
-- Pins (`pyproject.toml`): `torch==2.14.0`, `torchvision==0.29.0`, `numpy==2.5.3`, `pillow==11.3.0`, `safetensors==0.8.0`, `huggingface-hub==1.32.0`; dev `pytest==8.4.2`, `ruff==0.16.6`. Python 3.12; every local run of this row was **CPU-only** (Windows venv, `torch 2.14.0+cu130` with `CUDA_VISIBLE_DEVICES=-1`) — no local GPU is used for this row by the maintainer's rule; the GPU execution is the clean-runtime Kaggle T4 run recorded below and in `docs/release-verification.md`.
+- Pins (`pyproject.toml`): `torch==2.14.0`, `torchvision==0.29.0`, `numpy==2.5.3`, `pillow==11.3.0`, `safetensors==0.8.0`, `huggingface-hub==1.32.0`; dev `pytest==8.4.2`, `ruff==0.16.6`. Python 3.12; every local run of this profile was **CPU-only** (Windows venv, `torch 2.14.0+cu130` with `CUDA_VISIBLE_DEVICES=-1`) — no local GPU is used for this profile by the maintainer's rule; the GPU execution is the clean-runtime Kaggle T4 run recorded below and in `docs/release-verification.md`.
 - Executed 2026-09-20: `python -m pytest -q -o addopts= tests` — 38 passed in about 10 s on the CPU (33 offline including the stub-model adaptation, the synthetic-tarball tests, the randomly initialised vendored network and the BGR / per-date normalisation check, + 5 notebook-parity tests; the model-backed smoke on the converted weights included), exit 0; `ruff check src tests tools` clean; `tools/validate_release_assets.py` PASS.
 - Executed 2026-09-20, build-time conversion (CPU, 4.4 s): the static audit found exactly the four state-dict globals; `torch.load(weights_only=True)` returned a plain state dict of 776 tensors with no `module.` prefix; `load_state_dict(strict=True)` on the vendored network matched every key with 0 missing, 0 unexpected and 0 shape mismatches; the safetensors reproduced the pinned digest on two consecutive conversions. Vendoring check: the network built with `torchvision.models.efficientnet_b5(weights=None).features[0:5]` has exactly the checkpoint's 428 encoder tensors; identical dates give a change map with maximum 0.023, far below the 0.5 threshold.
 - Executed 2026-09-20, dataset pinning: the 3.83 GB tarball was downloaded, its digest checked against the Hub LFS pointer before use, and indexed once on the CPU in 30 s (47,781 file members: 11,125 / 1,600 / 3,200 crop triples in `train` / `val` / `test`, three list files, the authors' `1to255.py` and two stray PNGs at the root; labels uint8 0 / 255 with 24 test crops carrying an intermediate value 156 or 254; 1,716 of the 3,200 test crops have no change, mean change fraction 5.2 %); 64 crops were drawn with a fixed seed from the clean-label crops with ≥ 3 % change, one per source pair (355 / 48 / 103 candidate pairs).
