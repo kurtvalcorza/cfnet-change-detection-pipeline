@@ -47,7 +47,7 @@ Binary building-change maps for pairs of co-registered RGB patches at about 0.5 
 
 ###### Primary Intended Users
 
-Researchers, students and engineers evaluating bi-temporal change detection on very-high-resolution imagery; DIMER operators publishing the model profile; DIMER maintainers who need a reference for a vendored network with a torchvision backbone and for tutorial data under academic-only terms.
+Researchers, students and engineers evaluating bi-temporal change detection on very-high-resolution imagery; Operators publishing the model profile; Maintainers who need a reference for a vendored network with a torchvision backbone and for tutorial data under academic-only terms.
 
 ###### Out-of-scope use cases
 
@@ -141,7 +141,7 @@ Tutorial and evaluation of CFNet building-change detection on LEVIR-CD-like pair
 | Input contract | two co-registered 8-bit RGB images of the same size (sides in [64, 2048], multiples of 32) as arrays or PNG / JPEG; the earlier date as `before`, the later as `after`; labels 0 / 1 / −1 for adaptation (files: 0 / 255) |
 | Sample data | the CFNet authors' LEVIR-CD mirror (academic use only) fetched at run time from the Hub at an immutable revision, 192 pinned members extracted, never vendored |
 
-**One thing is open, and it is neither the licence nor the code:** whether a one-time unpickle through torch's weights-only loader, after a static audit with a pinned digest — in the build and in the tutorial runtime, where the notebook converts what it downloads — meets the DIMER bar, or whether DIMER should host only the safetensors converted and verified once by the maintainer. The served artifact is the same file either way. A second, data-side point for the profile: a DIMER tutorial that fetches LEVIR-CD is bound by its academic-only terms; the profile's own inference needs no LEVIR-CD data.
+**One thing is open, and it is neither the licence nor the code:** whether a one-time unpickle through torch's weights-only loader, after a static audit with a pinned digest — in the build and in the tutorial runtime, where the notebook converts what it downloads — meets the bar for redistribution, or whether only the safetensors converted and verified once by the maintainer should be published. The served artifact is the same file either way. A second, data-side point for the profile: a DIMER tutorial that fetches LEVIR-CD is bound by its academic-only terms; the profile's own inference needs no LEVIR-CD data.
 
 ## Runtime
 
