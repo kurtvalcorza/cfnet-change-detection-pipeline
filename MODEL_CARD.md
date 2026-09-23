@@ -43,7 +43,7 @@ What this repository adds is the `CFNetChangePipeline` class in `src/cfnet_chang
 
 ###### Primary Intended Uses
 
-Binary building-change maps for pairs of co-registered RGB patches at about 0.5 m resolution (sides multiples of 32, 64–2048 pixels), evaluation of those maps on labelled pairs against an all-unchanged baseline, and bounded fine-tuning of the change decoder to a user's labelled pairs with a portable adapter — as a tutorial and evaluation contract for a DIMER model profile, and as the runtime that profile would serve. The default tutorial path downloads the checkpoint from the Hub and the LEVIR-CD tarball from the authors' mirror at immutable revisions, for academic use, and nothing else.
+Binary building-change maps for pairs of co-registered RGB patches at about 0.5 m resolution (sides multiples of 32, 64–2048 pixels), evaluation of those maps on labelled pairs against an all-unchanged baseline, and bounded fine-tuning of the change decoder to a user's labelled pairs with a portable adapter — as a tutorial and evaluation contract, and as the runtime a deployment of the converted checkpoint would use. The default tutorial path downloads the checkpoint from the Hub and the LEVIR-CD tarball from the authors' mirror at immutable revisions, for academic use, and nothing else.
 
 ###### Primary Intended Users
 
@@ -101,7 +101,7 @@ A swapped date order, uncalibrated imagery or a different resolution produces co
 
 ###### Use cases
 
-Tutorial and evaluation of CFNet building-change detection on LEVIR-CD-like pairs; a DIMER model profile serving the converted checkpoint; a reference for vendoring a torchvision-backboned network and for handling tutorial data under academic-only terms; a starting point for fine-tuning the change decoder on a user's labelled pairs, with the caveats above.
+Tutorial and evaluation of CFNet building-change detection on LEVIR-CD-like pairs; a deployment serving the converted checkpoint; a reference for vendoring a torchvision-backboned network and for handling tutorial data under academic-only terms; a starting point for fine-tuning the change decoder on a user's labelled pairs, with the caveats above.
 
 ## Immutable provenance
 
@@ -127,21 +127,20 @@ Tutorial and evaluation of CFNet building-change detection on LEVIR-CD-like pair
 - `audit_pickle(path, allowed=…)`, `convert_model(path=None)`, `verify_converted(path=None)` and `build_model()` are the serialization primitives.
 - Constants: `MEANS_BEFORE`, `STDS_BEFORE`, `MEANS_AFTER`, `STDS_AFTER` (BGR order), `CHANGE_THRESHOLD = 0.5`, `MIN_SIDE = 64`, `MAX_SIDE = 2048`, `SIDE_MULTIPLE = 32`, `SAMPLE_SIZE = 256`, `NUM_CLASSES = 2`, `CLASS_NAMES = ("unchanged", "changed")`, `IGNORE_INDEX = -1`, `MIN_RECORDS = 4`, `MAX_RECORDS = 2000`, `PARAMETER_COUNT = 3838563`, `STATE_TENSORS = 776`, `ENCODER_TENSORS = 428`, `ADAPTATION_MODES = ("change_decoder", "decoders")`, `CONTENT_LOSS_WEIGHT = 0.1`, `ARTIFACT_FORMAT = "org.valcorza.cfnet-change-detection.adapter.v1"`, `TAR_SHA256`, `DATASET_REVISION`, `UPSTREAM_CODE_COMMIT`.
 
-## DIMER deployment notes
+## Deployment notes
 
 | Field | Status |
 |---|---|
-| **DIMER status** | **Planned / conditional** — the `.pth` asset-format and deserialization-trust review DIMER requires is what this repository implements; the review's acceptance is the maintainer's call |
 | Licence | Apache-2.0 (weights and the upstream `wifiBlack/CFNet` code; torchvision BSD-3; this repository's code Apache-2.0) — use, modification, redistribution and commercial use of the **model** permitted with the licence and notices preserved. The tutorial **data** (LEVIR-CD) are academic-use only and are never redistributed |
-| Weights | Would be redistributed converted, not unmodified: the served artifact is the deterministic safetensors derived from the pinned checkpoint, with both identities recorded (asset spec §11.2); this repository redistributes neither |
+| Weights | Redistributable only as the converted file, not the original: the deployable artifact is the deterministic safetensors derived from the pinned checkpoint, with both identities recorded; this repository redistributes neither |
 | Remote code | **Not required** — no Hub-hosted module is imported; the network is `modeling.py` in this repository plus torchvision's EfficientNet-B5 class from PyPI |
-| Executable serialization | One pickle, unpickled **once** at conversion through torch's weights-only loader after a digest check and a static audit; a DIMER profile should carry the safetensors file and never the `.pth` |
+| Executable serialization | One pickle, unpickled **once** at conversion through torch's weights-only loader after a digest check and a static audit; a deployment should load the safetensors file and never the `.pth` |
 | Runtime | `torch==2.14.0` + `torchvision==0.29.0` + `numpy` + `pillow` + `safetensors` + `huggingface-hub`; float16 autocast on CUDA; a CPU serves a 256 × 256 pair in well under a second |
-| Upload format | `cfnet-levir-cd.safetensors` (15,598,980 bytes, SHA-256 `b348186e…`); **the `.pth` file must not be uploaded** |
+| Deployable files | `cfnet-levir-cd.safetensors` (15,598,980 bytes, SHA-256 `b348186e…`); **the `.pth` file must not be deployed** |
 | Input contract | two co-registered 8-bit RGB images of the same size (sides in [64, 2048], multiples of 32) as arrays or PNG / JPEG; the earlier date as `before`, the later as `after`; labels 0 / 1 / −1 for adaptation (files: 0 / 255) |
 | Sample data | the CFNet authors' LEVIR-CD mirror (academic use only) fetched at run time from the Hub at an immutable revision, 192 pinned members extracted, never vendored |
 
-**One thing is open, and it is neither the licence nor the code:** whether a one-time unpickle through torch's weights-only loader, after a static audit with a pinned digest — in the build and in the tutorial runtime, where the notebook converts what it downloads — meets the bar for redistribution, or whether only the safetensors converted and verified once by the maintainer should be published. The served artifact is the same file either way. A second, data-side point for the profile: a DIMER tutorial that fetches LEVIR-CD is bound by its academic-only terms; the profile's own inference needs no LEVIR-CD data.
+**Before deploying.** Conversion unpickles the source checkpoint once, through torch's weights-only loader after a static audit with a pinned digest (the notebook converts what it downloads); a deployment that wants no unpickling at all should load only a safetensors file converted and verified once in advance. The deployable artifact is the same file either way. On the data side, any tutorial run that fetches LEVIR-CD is bound by its academic-only terms; inference itself needs no LEVIR-CD data.
 
 ## Runtime
 
