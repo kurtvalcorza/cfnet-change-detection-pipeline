@@ -1,0 +1,87 @@
+[colab] Parsing notebook '/home/kurt/colab-runs/cfnet-change-detection-pipeline-ee1708b-ea9895/cfnet_change_detection_colab_ee1708b_colab-cli-t4.ipynb'...
+[colab] Executing cell 1/13 - Infrastructure: install the locked runtime into an isolated environment...
+{'isolated_environment': '/content/dimer_isolated_env', 'isolated_python': '3.12.12', 'kernel_python': '3.13.15', 'locked_packages': 45, 'setup_seconds': 57}
+[colab] Executing cell 2/13 - Route the remaining cells to the isolated environment...
+Every later code cell now runs in /content/dimer_isolated_env/bin/python (pid 1198).
+[colab] Executing cell 3/13 - cfnet_change_detection-07...
+{'notebook_source': {'repository': 'cfnet-change-detection-pipeline', 'repository_revision': 'b084c5d55b46f768e75538f24b24d5cd18c534b3', 'embedded_module': 'src/cfnet_change_detection_pipeline/pipeline.py', 'embedded_modules': ['src/cfnet_change_detection_pipeline/metrics.py', 'src/cfnet_change_detection_pipeline/modeling.py', 'src/cfnet_change_detection_pipeline/pipeline.py', 'src/cfnet_change_detection_pipeline/samples.py'], 'module_sha256': '16be1bf946342c9ab67397f90ae755ea2fb911c3ff19142744e4bc9ce384eec5', 'generator': 'build_notebook.py/2.1', 'notebook_spec': '2.2'}, 'python': '3.12.12', 'torch': '2.14.0+cu130', 'torchvision': '0.29.0+cu130', 'PIL': '11.3.0', 'cuda': True}
+[colab] Executing cell 4/13 - cfnet_change_detection-09...
+[colab] Executing cell 5/13 - cfnet_change_detection-11...
+[colab] Executing cell 6/13 - cfnet_change_detection-13...
+[colab] Executing cell 7/13 - cfnet_change_detection-15...
+[colab] Executing cell 8/13 - cfnet_change_detection-17...
+{'model_id': 'wifibk/CFNet', 'revision': 'c23279428d14186d67ce199b3db358038bf37585', 'license': 'apache-2.0', 'files': 2, 'total_bytes': 15808640}
+{'weights_dir': '/content/weights/cfnet-levir-cd', 'fetched': ['levir-cd.pth', 'README.md']}
+{'verified_files': 2, 'revision': 'c23279428d14186d67ce199b3db358038bf37585'}
+{'conversion': {'source': {'path': 'levir-cd.pth', 'bytes': 15805666, 'sha256': '22ab286b2138ab1082e04290b27cbff5abd3802375a6b2f01d4ba78ca8b0c1aa'}, 'audit': {'file': 'levir-cd.pth', 'torch_archive': True, 'pickles': 1, 'globals': ['collections.OrderedDict', 'torch.FloatStorage', 'torch.LongStorage', 'torch._utils._rebuild_tensor_v2'], 'violations': [], 'audit_sha256': '5b9f0ba08490293d6c17b9cef219991e1a6edda31609429679f8dca1af5a7b10'}, 'checkpoint': {'entries': 'a plain state dict (no optimizer, no metadata)', 'state_dict_tensors': 776, 'encoder_tensors': 428}, 'converted': [{'path': 'cfnet-levir-cd.safetensors', 'bytes': 15598980, 'sha256': 'b348186e5003a7447ab5eb5874204c50e63ad71aa61aca3ff0a80746116963d9'}], 'seconds': 0.7}}
+{'device': 'cuda', 'source': 'converted from the manifest-verified source checkpoint'}
+[colab] Executing cell 9/13 - cfnet_change_detection-19...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+{'data_source': "LEVIR-CD building-change crops (Chen and Shi, 2020), the CFNet authors' processed mirror; Hugging Face dataset wifibk/CFNet_Datasets, LEVIR-CD-processed.tar.gz, 64 crops selected 2026-09-20 from the dataset's own splits; LEVIR-CD: academic purposes only, commercial use prohibited; imagery subject to Google Earth's terms of use", 'splits': {'train': 32, 'validation': 8, 'test': 24}, 'disjoint': {'train': 32, 'validation': 8, 'test': 24}, 'digest': '8be8dbd1af232eb0...', 'seconds': 59.6}
+{'train': {'change_fraction': 0.1027, 'sizes': [[256, 256]], 'ignored_pixels': 0, 'source_pairs': 32}}
+{'validation': {'change_fraction': 0.1275, 'sizes': [[256, 256]], 'ignored_pixels': 0, 'source_pairs': 8}}
+{'test': {'change_fraction': 0.1385, 'sizes': [[256, 256]], 'ignored_pixels': 0, 'source_pairs': 24}}
+{'first_test_pair': {'id': 'test-000', 'shape': (256, 256, 3), 'has_label': True, 'change_fraction': 0.039, 'ignored_pixels': 0}}
+{'sample_pair': {'before': 'outputs/cfnet_change_detection_sample_before.png', 'after': 'outputs/cfnet_change_detection_sample_after.png', 'label': 'outputs/cfnet_change_detection_sample_label.png'}, 'pairs_csv': 'outputs/cfnet_change_detection_sample_pairs.csv'}
+{'validation': 'record shape, dtype range, equal sizes of the two dates, side multiples and label values only. Nothing checks that the two images show the same place, that they are co-registered, that the resolution is about 0.5 m, or that the label was drawn for this pair -- any two same-sized RGB images are compared without complaint', 'byod_minimum_pairs': 7, 'byod_split': {'test': 0.25, 'validation': 0.2}}
+{'probe': 'dates of different sizes', 'rejected': 'records[0]: before and after must have the same shape, got (256, 256, 3) and (128, 128, 3)'}
+{'probe': 'side not a multiple of 32', 'rejected': 'records[0]: before sides must be multiples of 32, got (200, 200)'}
+{'probe': 'unknown label value', 'rejected': 'records[0]: label values [2] outside [-1, 0, 1]'}
+[colab] Executing cell 10/13 - cfnet_change_detection-21...
+{'seconds': 4.6, 'adapted': False, 'metric': 'pixel F1 / IoU of the changed class over the labelled pixels of the held-out pairs (ignore index excluded)'}
+{'baseline_unchanged_test': {'f1': 0.0, 'iou': 0.0, 'accuracy': 0.8615}}
+{'frozen_test': {'f1': 0.9352, 'iou': 0.8782, 'precision': 0.9423, 'recall': 0.9281, 'accuracy': 0.9822, 'change_fraction_label': 0.1385, 'change_fraction_predicted': 0.1364}}
+{'frozen_validation': {'f1': 0.9151, 'iou': 0.8436}}
+{'pair': 'test_2_20', 'change_label': 0.039, 'change_predicted': 0.0389, 'map_range': [-0.016, 1.0]}
+{'pair': 'test_3_19', 'change_label': 0.036, 'change_predicted': 0.0385, 'map_range': [-0.015, 1.0]}
+{'pair': 'test_4_19', 'change_label': 0.05, 'change_predicted': 0.0473, 'map_range': [-0.011, 1.0]}
+{'pair': 'test_8_14', 'change_label': 0.256, 'change_predicted': 0.2586, 'map_range': [-0.039, 1.0]}
+{'pair': 'test_9_2', 'change_label': 0.055, 'change_predicted': 0.0542, 'map_range': [-0.009, 1.0]}
+{'pair': 'test_10_8', 'change_label': 0.166, 'change_predicted': 0.1662, 'map_range': [-0.019, 1.0]}
+{'decision_rule': 'changed where the tanh change map exceeds 0.5 (upstream)', 'map_shape': (256, 256)}
+[colab] Executing cell 11/13 - cfnet_change_detection-23...
+{'frozen_validation_loss_by_draw_seed': [0.11621, 0.11523, 0.11546, 0.11519, 0.11525], 'span': 0.00102, 'note': 'same weights, five different random pixel-pair draws'}
+{'epoch': 0, 'train_loss': None, 'val_loss': 0.11621, 'val_f1': 0.9151, 'val_iou': 0.8436, 'note': 'frozen model'}
+{'epoch': 1, 'train_loss': 0.10863, 'val_loss': 0.11625, 'val_f1': 0.9147, 'val_iou': 0.8428}
+{'epoch': 2, 'train_loss': 0.10866, 'val_loss': 0.11635, 'val_f1': 0.9137, 'val_iou': 0.8411}
+{'epoch': 3, 'train_loss': 0.10889, 'val_loss': 0.1164, 'val_f1': 0.9134, 'val_iou': 0.8406}
+{'epoch': 4, 'train_loss': 0.10833, 'val_loss': 0.11642, 'val_f1': 0.9133, 'val_iou': 0.8404}
+{'trainable_parameters': 852867, 'total_parameters': 3838563, 'steps': 32, 'best_epoch': 0, 'loss': 'upstream loss: MSE on the tanh change map + 0.1 × the content-consistency terms, ignore index excluded', 'precision': 'float16 autocast + GradScaler', 'batchnorm': 'running statistics frozen (eval mode) during adaptation', 'seconds': 5.6}
+{'selection': 'lowest validation loss (the upstream loss: change-map MSE + 0.1 x content terms) with the content-term pixel pairs drawn from a generator re-seeded identically for every epoch, epoch 0 = the pretrained model; deterministic for fixed weights on one device'}
+[colab] Executing cell 12/13 - cfnet_change_detection-25...
+{'f1': {'baseline_unchanged': 0.0, 'frozen': 0.9352, 'adapted': 0.9352}}
+{'iou': {'baseline_unchanged': 0.0, 'frozen': 0.8782, 'adapted': 0.8782}}
+{'precision': {'baseline_unchanged': None, 'frozen': 0.9423, 'adapted': 0.9423}}
+{'recall': {'baseline_unchanged': 0.0, 'frozen': 0.9281, 'adapted': 0.9281}}
+{'accuracy': {'baseline_unchanged': 0.8615, 'frozen': 0.9822, 'adapted': 0.9822}}
+{'validation_f1': {'frozen': 0.9151, 'adapted': 0.9151}, 'selection': {'kept_epoch': 0, 'validation_loss': {'frozen': 0.11621, 'kept_epoch': 0.11621}, 'margin': 0.0, 'frozen_draw_noise_span': 0.00102}}
+{'run_summary': {'data': 'LEVIR-CD sample', 'trainable': 'change_decoder', 'learning_rate': 1e-05, 'epochs': 4, 'kept_epoch': 0, 'kept': 'the frozen model (epoch 0)', 'test_f1': {'frozen': 0.9352, 'adapted': 0.9352}, 'delta_f1': 0.0, 'delta_iou': 0.0}}
+{'run_history': [{'trainable': 'change_decoder', 'learning_rate': 1e-05, 'epochs': 4, 'kept_epoch': 0, 'delta_f1': 0.0}]}
+{'report': 'outputs/cfnet_change_detection_evaluation_report.json'}
+[colab] Executing cell 13/13 - cfnet_change_detection-27...
+{'pair': 'test_2_20', 'agreement': 0.995, 'change_label': 0.039, 'change_predicted': 0.0389, 'note': 'sanity check on two pairs'}
+{'pair': 'test_3_19', 'agreement': 0.997, 'change_label': 0.036, 'change_predicted': 0.0385, 'note': 'sanity check on two pairs'}
+{'artifact': 'outputs/cfnet_change_detection_adapter', 'format': 'org.valcorza.cfnet-change-detection.adapter.v1', 'trainable': 'change_decoder', 'kept_epoch': 0, 'tensors': 72, 'bytes': 3419684, 'sha256': 'd1676c1f81ef4a1e...'}
+{'reload_parity': {'f1_diff': 0.0, 'metrics_identical': True, 'max_abs_map_diff': 0.0}, 'reloaded_best_epoch': 0}
+outputs/:
+  - outputs/cfnet_change_detection_adapter/adapter.safetensors (3339.5 KB)
+  - outputs/cfnet_change_detection_adapter/manifest.json (8.1 KB)
+  - outputs/cfnet_change_detection_after_test_2_20.png (128.2 KB)
+  - outputs/cfnet_change_detection_after_test_3_19.png (138.0 KB)
+  - outputs/cfnet_change_detection_before_test_2_20.png (138.5 KB)
+  - outputs/cfnet_change_detection_before_test_3_19.png (141.8 KB)
+  - outputs/cfnet_change_detection_change_adapted_test_2_20.png (0.7 KB)
+  - outputs/cfnet_change_detection_change_adapted_test_3_19.png (0.7 KB)
+  - outputs/cfnet_change_detection_evaluation_report.json (12.7 KB)
+  - outputs/cfnet_change_detection_label_test_2_20.png (0.7 KB)
+  - outputs/cfnet_change_detection_label_test_3_19.png (0.6 KB)
+  - outputs/cfnet_change_detection_map_adapted_test_2_20.png (11.6 KB)
+  - outputs/cfnet_change_detection_map_adapted_test_3_19.png (11.1 KB)
+  - outputs/cfnet_change_detection_predictions.json (0.4 KB)
+  - outputs/cfnet_change_detection_result.json (4.5 KB)
+  - outputs/cfnet_change_detection_sample_after.png (128.2 KB)
+  - outputs/cfnet_change_detection_sample_before.png (138.5 KB)
+  - outputs/cfnet_change_detection_sample_label.png (0.7 KB)
+  - outputs/cfnet_change_detection_sample_pairs.csv (5.8 KB)
+{'run_summary': {'data': 'LEVIR-CD sample', 'trainable': 'change_decoder', 'learning_rate': 1e-05, 'epochs': 4, 'kept_epoch': 0, 'kept': 'the frozen model (epoch 0)', 'test_f1': {'frozen': 0.9352, 'adapted': 0.9352}, 'delta_f1': 0.0, 'delta_iou': 0.0}}
+[colab] Saving notebook with outputs to '/home/kurt/colab-runs/cfnet-change-detection-pipeline-ee1708b-ea9895/cfnet_change_detection_colab_ee1708b_colab-cli-t4_output.ipynb'...
