@@ -27,6 +27,7 @@ import csv
 import hashlib
 import io
 import json
+import re
 import tarfile
 import zipfile
 from collections.abc import Mapping, Sequence
@@ -59,6 +60,11 @@ TAR_SHA256 = "6515dd451c159b9ed5bd53b3fb6e15188dd114b296ff9169ca21fbcabcd1d109"
 CORPUS_BYTES = 16_921_921  # the 192 pinned members, uncompressed
 DEFAULT_CACHE_DIR = Path("weights") / "levir-cd"
 ROLES = ("train", "validation", "test")
+# BYOD ceilings (review CFN-m5), checked on the zip's directory before any member is read or any image decoded.
+BYOD_MAX_MEMBERS = 6_001  # 2,000 pairs x (before, after, label) + pairs.csv
+BYOD_MAX_EXPANDED_BYTES = 512 * 1024 * 1024  # total uncompressed size of the archive's members
+BYOD_VAL_FRACTION = 0.2
+BYOD_TEST_FRACTION = 0.25
 # (crop key, role = the dataset split, source pair id, before member, bytes, sha256, after member, bytes, sha256,
 #  label member, bytes, sha256) — member paths are relative to the tarball root (the archive prefixes them with `./`)
 SAMPLE_RECORDS: tuple[tuple[str, str, int, str, int, str, str, int, str, str, int, str], ...] = (
@@ -1120,19 +1126,43 @@ def check_split_disjoint(splits: Mapping[str, Sequence[Mapping[str, Any]]]) -> d
     return {name: len(records) for name, records in splits.items()}
 
 
+def _split_sizes(n: int, val_fraction: float, test_fraction: float) -> tuple[int, int, int]:
+    """(test, validation, train) sizes of a split of `n` distinct pairs."""
+    n_test = max(1, round(n * test_fraction))
+    n_val = round(n * val_fraction)
+    return n_test, n_val, n - n_test - n_val
+
+
+def minimum_pairs(*, val_fraction: float = BYOD_VAL_FRACTION, test_fraction: float = BYOD_TEST_FRACTION) -> int:
+    """The smallest number of distinct pairs `split_dataset` accepts at these fractions: a non-empty test split, a
+    non-empty validation split when `val_fraction` > 0, and at least MIN_RECORDS training pairs (review CFN-M4)."""
+    for n in range(MIN_RECORDS, MIN_RECORDS + 1_000):
+        n_test, n_val, n_train = _split_sizes(n, val_fraction, test_fraction)
+        if n_train >= MIN_RECORDS and n_test >= 1 and (n_val >= 1 or val_fraction == 0.0):
+            return n
+    raise ValueError("no dataset size satisfies these fractions")
+
+
 def split_dataset(
     records: Sequence[Mapping[str, Any]],
     *,
-    val_fraction: float = 0.2,
-    test_fraction: float = 0.25,
+    val_fraction: float = BYOD_VAL_FRACTION,
+    test_fraction: float = BYOD_TEST_FRACTION,
     seed: int = 0,
 ) -> dict[str, list[dict[str, Any]]]:
     """Seeded shuffle of a BYOD dataset into train / validation / test after de-duplicating pairs. Crops of one
-    scene are near-duplicates; group them yourself (one scene per split) when that matters."""
+    scene are near-duplicates; group them yourself (one scene per split) when that matters. The smallest accepted
+    dataset is `minimum_pairs()` distinct pairs (7 at the default 25 % test / 20 % validation)."""
     import random
 
     if not (0.0 <= val_fraction < 1.0 and 0.0 < test_fraction < 1.0 and val_fraction + test_fraction < 1.0):
         raise ValueError("fractions must satisfy 0 <= val < 1, 0 < test < 1, val + test < 1")
+    needed = minimum_pairs(val_fraction=val_fraction, test_fraction=test_fraction)
+    if len(records) < needed:
+        raise ValueError(
+            f"{len(records)} pairs; the split ({test_fraction:.0%} test, {val_fraction:.0%} validation, at least "
+            f"{MIN_RECORDS} training pairs) needs at least {needed} distinct pairs"
+        )
     checked = validate_dataset(records)["records"]
     seen: set[str] = set()
     unique = []
@@ -1143,11 +1173,14 @@ def split_dataset(
             unique.append(record)
     rng = random.Random(seed)
     rng.shuffle(unique)
-    n_test = max(1, round(len(unique) * test_fraction))
-    n_val = round(len(unique) * val_fraction)
+    n_test, n_val, _n_train = _split_sizes(len(unique), val_fraction, test_fraction)
     splits = {"test": unique[:n_test], "validation": unique[n_test : n_test + n_val], "train": unique[n_test + n_val :]}
-    if len(splits["train"]) < MIN_RECORDS:
-        raise ValueError(f"split leaves {len(splits['train'])} training pairs; at least {MIN_RECORDS} are required")
+    if len(unique) < needed:
+        raise ValueError(
+            f"{len(unique)} distinct pairs after removing {len(checked) - len(unique)} duplicate(s); the split needs at "
+            f"least {needed} (it would leave test {len(splits['test'])}, validation {len(splits['validation'])}, training "
+            f"{len(splits['train'])}; at least {MIN_RECORDS} training pairs are required)"
+        )
     return splits
 
 
@@ -1155,19 +1188,61 @@ def load_byod_dataset(path: str | Path) -> list[dict[str, Any]]:
     """Read `{id, before, after, label}` records from a directory or a zip holding `pairs.csv` (columns `id`,
     `before`, `after`, `label`) beside same-sized RGB PNG / JPEG images and 0 / 255 label PNGs; files are decoded
     from bytes, never extracted to disk."""
+    import posixpath
     import tempfile
 
     source = Path(path)
     if source.is_dir():
+        if not (source / "pairs.csv").is_file():
+            raise ValueError(f"BYOD directory {str(source)!r} must contain pairs.csv")
         table = (source / "pairs.csv").read_text(encoding="utf-8")
-        loader = lambda name: (source / name).read_bytes()  # noqa: E731
+        root = source.resolve()
+
+        def loader(name: str, row_id: str, column: str) -> bytes:
+            target = (source / name).resolve()
+            if not target.is_relative_to(root) or not target.is_file():
+                raise ValueError(f"pairs.csv row {row_id!r}: {column} file {name!r} is not in the BYOD directory")
+            return target.read_bytes()
+
     elif source.is_file() and source.suffix.lower() == ".zip":
         archive = zipfile.ZipFile(source)
-        members = {Path(n).name: n for n in archive.namelist()}
-        if "pairs.csv" not in members:
-            raise ValueError("BYOD zip must contain pairs.csv")
-        table = archive.read(members["pairs.csv"]).decode("utf-8")
-        loader = lambda name: archive.read(members[name])  # noqa: E731
+        infos = [info for info in archive.infolist() if not info.is_dir()]
+        if len(infos) > BYOD_MAX_MEMBERS:
+            raise ValueError(f"BYOD zip has {len(infos):,} files; at most {BYOD_MAX_MEMBERS:,} are accepted")
+        expanded = sum(info.file_size for info in infos)
+        if expanded > BYOD_MAX_EXPANDED_BYTES:
+            raise ValueError(
+                f"BYOD zip expands to {expanded:,} bytes; at most {BYOD_MAX_EXPANDED_BYTES:,} bytes "
+                f"({BYOD_MAX_EXPANDED_BYTES // (1024 * 1024)} MB) are accepted"
+            )
+        names = [info.filename for info in infos]
+        tables = [n for n in names if posixpath.basename(n) == "pairs.csv"]
+        if len(tables) != 1:
+            raise ValueError(f"BYOD zip must contain exactly one pairs.csv (found {len(tables)})")
+        base = posixpath.dirname(tables[0])
+        by_name = set(names)
+        by_basename: dict[str, list[str]] = {}
+        for n in names:
+            by_basename.setdefault(posixpath.basename(n), []).append(n)
+        table = archive.read(tables[0]).decode("utf-8")
+
+        def loader(name: str, row_id: str, column: str) -> bytes:
+            # A path in pairs.csv is relative to pairs.csv; a bare file name may also sit in another folder of the
+            # zip when it is the only file of that name there.
+            posix = name.replace("\\", "/")
+            wanted = posixpath.normpath(posixpath.join(base, posix))
+            if wanted in by_name:
+                return archive.read(wanted)
+            candidates = by_basename.get(posixpath.basename(posix), []) if "/" not in posix else []
+            if len(candidates) == 1:
+                return archive.read(candidates[0])
+            where = "several files" if len(candidates) > 1 else "no file"
+            located = f" in folder {base!r}" if base else ""
+            raise ValueError(
+                f"pairs.csv row {row_id!r}: {column} file {name!r} matches {where} in the zip (paths are read relative "
+                f"to pairs.csv{located})"
+            )
+
     else:
         raise ValueError("BYOD datasets must be a directory or a .zip holding pairs.csv and the image files")
     rows = list(csv.DictReader(io.StringIO(table)))
@@ -1175,16 +1250,24 @@ def load_byod_dataset(path: str | Path) -> list[dict[str, Any]]:
     if missing:
         raise ValueError(f"pairs.csv is missing columns {sorted(missing)}")
     out = []
+    used: set[str] = set()
     with tempfile.TemporaryDirectory() as tmp:
-        for row in rows:
-            record: dict[str, Any] = {"id": row["id"]}
+        for index, row in enumerate(rows):
+            # `source_id` names the pair in printouts and output file names: the id, file-name safe and unique.
+            safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", row["id"] or "")[:64] or f"pair{index:04d}"
+            if safe in used:
+                safe = f"{safe}-{index:04d}"
+            used.add(safe)
+            record: dict[str, Any] = {"id": row["id"], "source_id": safe, "source": f"BYOD pairs.csv row {index + 1}"}
             for part in ("before", "after"):
+                if not row[part]:
+                    raise ValueError(f"pairs.csv row {row['id']!r}: the {part} column is empty")
                 image_path = Path(tmp) / f"{part}{Path(row[part]).suffix.lower() or '.png'}"
-                image_path.write_bytes(loader(row[part]))
+                image_path.write_bytes(loader(row[part], row["id"], part))
                 record[part] = read_image(image_path)
             if row.get("label"):
                 label_path = Path(tmp) / "label.png"
-                label_path.write_bytes(loader(row["label"]))
+                label_path.write_bytes(loader(row["label"], row["id"], "label"))
                 record["label"] = read_mask(label_path)
             out.append(record)
     return out

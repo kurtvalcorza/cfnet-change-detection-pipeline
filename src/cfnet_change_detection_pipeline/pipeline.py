@@ -90,6 +90,14 @@ TRAINABLE_PREFIXES: dict[str, tuple[str, ...]] = {
     "decoders": ("change_decoder.", "content_decoder_1.", "content_decoder_2."),
 }
 CONTENT_LOSS_WEIGHT = 0.1  # upstream `beta`; the change loss weight `alpha` is 1
+# Epoch selection (review CFN-M2): the validation loss draws its content-term pixel pairs from a generator re-seeded
+# with this value on every call, so the same weights always score the same and epochs are compared on identical draws.
+VALIDATION_DRAW_SEED = 0
+SELECTION_RULE = (
+    "lowest validation loss (the upstream loss: change-map MSE + 0.1 x content terms) with the content-term pixel pairs "
+    "drawn from a generator re-seeded identically for every epoch, epoch 0 = the pretrained model; deterministic for "
+    "fixed weights on one device"
+)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -576,6 +584,22 @@ class CFNetChangePipeline:
             param.requires_grad_(False)
         return cls(model=model, device=chosen, weights_dir=root, source=source)
 
+    def reset_to_pretrained(self) -> CFNetChangePipeline:
+        """Restore every tensor of the verified base (the converted file is re-verified by digest first) and drop the
+        adapter, so a re-run of an evaluation or an adaptation starts from the pretrained model, not from an earlier
+        adaptation (review CFN-M3). Returns the pipeline."""
+        verify_converted(self.weights_dir)
+        from safetensors.torch import load_file
+
+        state = load_file(str(Path(self.weights_dir) / CONVERTED_WEIGHTS_NAME))
+        current = self.model.state_dict()
+        self.model.load_state_dict({k: v.to(current[k].device, current[k].dtype) for k, v in state.items()}, strict=True)
+        self.model.eval()
+        for param in self.model.parameters():
+            param.requires_grad_(False)
+        self.adapter = None
+        return self
+
     # ---- forward ---------------------------------------------------------------------------------------
 
     def _inputs(self, before: Any, after: Any) -> tuple[Any, Any]:
@@ -700,6 +724,29 @@ class CFNetChangePipeline:
             content = content + self._content_loss(map_1 * (1 - weight), map_2 * (1 - weight), generator, mode="unchange")
         return main + CONTENT_LOSS_WEIGHT / len(maps_1) * content
 
+    def validation_loss(
+        self, records: Sequence[Mapping[str, Any]], *, batch_size: int = 4, draw_seed: int = VALIDATION_DRAW_SEED
+    ) -> float:
+        """The epoch-selection criterion of `adapt`: the upstream loss over labelled pairs, averaged over batches, with
+        the content-term pixel pairs drawn from a generator seeded with `draw_seed` afresh on every call. The same
+        weights therefore return the same value (on one device), and different `draw_seed` values show how much the
+        random pixel pairs alone move the number."""
+        import numpy as np
+        import torch
+
+        checked = validate_dataset(records, min_records=1)["records"]
+        generator = torch.Generator(device="cpu").manual_seed(int(draw_seed))
+        self.model.eval()
+        losses = []
+        for start in range(0, len(checked), batch_size):
+            batch = checked[start : start + batch_size]
+            change, maps_1, maps_2, focuses = self._change_map(
+                np.stack([r["before"] for r in batch]), np.stack([r["after"] for r in batch]), with_content=True
+            )
+            target = torch.from_numpy(np.stack([r["label"] for r in batch])).to(self.device)
+            losses.append(float(self._loss(change, maps_1, maps_2, focuses, target, generator)))
+        return sum(losses) / len(losses)
+
     def adapt(
         self,
         train: Sequence[Mapping[str, Any]],
@@ -716,7 +763,14 @@ class CFNetChangePipeline:
         two content decoders) on labelled pairs: the upstream loss (MSE on the change map plus the content terms),
         AdamW at a fixed learning rate, seeded horizontal/vertical flips applied to both dates and the label,
         float16 autocast with loss scaling on CUDA, BatchNorm statistics frozen. Epoch 0 records the frozen model;
-        the epoch with the lowest validation loss is kept."""
+        the epoch with the lowest validation loss is kept. The validation loss draws its content-term pixel pairs from a
+        generator re-seeded identically for every epoch (`validation_loss`), so epochs are compared on the same draws.
+        An adapted pipeline is refused: call `reset_to_pretrained()` first, so epoch 0 is always the pretrained model."""
+        if self.adapter is not None:
+            raise ValueError(
+                "this pipeline is already adapted; call reset_to_pretrained() first so the new run starts from the "
+                "pretrained model (epoch 0 must be the frozen model)"
+            )
         if not isinstance(epochs, int) or not 1 <= epochs <= 50:
             raise ValueError("epochs must be an int in 1..50")
         if not (0.0 < lr <= 1e-2):
@@ -764,11 +818,8 @@ class CFNetChangePipeline:
         def val_loss() -> float | None:
             if val_checked is None:
                 return None
-            model.eval()
-            losses = []
-            for start in range(0, len(val_checked), batch_size):
-                losses.append(float(batch_loss(val_checked[start : start + batch_size], grad=False)))
-            return sum(losses) / len(losses)
+            # A fresh generator per call: every epoch is scored on the same content-term pixel pairs (CFN-M2).
+            return self.validation_loss(val_checked, batch_size=batch_size, draw_seed=seed)
 
         initial_state = {k: v.detach().clone() for k, v in model.state_dict().items() if k in name_set}
         try:
@@ -839,6 +890,8 @@ class CFNetChangePipeline:
             "lr": lr,
             "batch_size": batch_size,
             "loss": "upstream loss: MSE on the tanh change map + 0.1 × the content-consistency terms, ignore index excluded",
+            "selection": SELECTION_RULE,
+            "validation_draw_seed": seed,
             "augmentation": "seeded horizontal/vertical flips of both dates and the label",
             "batchnorm": "running statistics frozen (eval mode) during adaptation",
             "precision": "float16 autocast + GradScaler" if use_amp else "float32",

@@ -1,6 +1,6 @@
 """Static release-asset validation for the CFNet change-detection DIMER pipeline.
 
-Checks the STANDALONE tutorial notebook (DIMER Notebook Specification 2.0 §4), the tutorial
+Checks the STANDALONE tutorial notebook (DIMER Notebook Specification 2.2 §4), the tutorial
 registry, model card, README, STATUS.md and weight documentation for source conformance and
 cross-document identity consistency, and runs the generator parity checks (PAR1-PAR3).
 
@@ -50,28 +50,46 @@ CODE_MARKERS = (
     # Stage 4: pinned tarball members, the dataset's splits, sample pair, refusal probes
     "USE_BYOD = False",
     "splits = fetch_sample_dataset(cache_dir='weights/levir-cd')",
-    "splits = split_dataset(load_byod_dataset(byod_path), seed=0)",
+    "byod_records = load_byod_dataset(byod_path)",
+    "splits = split_dataset(byod_records, seed=0)",
     "dataset_report = dataset_manifest(",
     "write_sample_pair(test_records[0], 'outputs/cfnet_change_detection_sample_before.png', 'outputs/cfnet_change_detection_sample_after.png', 'outputs/cfnet_change_detection_sample_label.png')",
-    "validate_dataset(records)",
-    # Stage 5: frozen model against the all-unchanged baseline
+    # CFN-M4 (review 2026-10-02): each refusal probe validates the probed record alone, so it names its own condition;
+    # BYOD_PATH and the upload guard; the real BYOD minimum is printed from the package.
+    "validate_dataset([record], min_records=1)",
+    "BYOD_PATH = ''",
+    "if len(uploaded) != 1:",
+    "'byod_minimum_pairs': minimum_pairs()",
+    # Stage 5: frozen model against the all-unchanged baseline (CFN-M3: always from the pretrained model)
+    "pipe.reset_to_pretrained()",
+    "if frozen_test['adapted'] or frozen_val['adapted']:",
     "frozen_test = pipe.evaluate(test_records)",
+    "record.get('source_id', record['id'])",
     "frozen_predictions = pipe.predict(test_records)",
     "'baseline_unchanged_test'",
     # Stage 6: bounded change-decoder fine-tuning
     "adapt_result = pipe.adapt(",
     "trainable=TRAINABLE",
     "lr=LEARNING_RATE",
-    # Stage 7: paired held-out comparison and the procedural assertions
+    # CFN-M2: the draw-to-draw noise of the selection criterion is shown before training
+    "pipe.validation_loss(val_records, batch_size=BATCH_SIZE, draw_seed=s)",
+    "print({'selection': adapt_result['selection']})",
+    # Stage 7: paired held-out comparison, the procedural checks (raising with a cause), run summary and history
     "adapted_test = pipe.evaluate(test_records)",
-    "assert adapt_result['history'][adapt_result['best_epoch']]['val_loss'] <= adapt_result['history'][0]['val_loss']",
-    "assert abs(adapted_val['model']['f1'] - adapt_result['history'][adapt_result['best_epoch']]['val']['f1']) < 1e-2",
+    "if kept['val_loss'] > history[0]['val_loss']:",
+    "if abs(adapted_val['model']['f1'] - kept['val']['f1']) >= 1e-2:",
+    "run_history = globals().get('run_history', [])",
+    "'frozen_draw_noise_span': draw_noise_span",
     # Stage 8: change maps, artifact export, reload parity, provenance
     "shown_predictions = pipe.predict(shown_records)",
     "_change_adapted_",
     "pipe.save_artifact(artifact_dir, metadata=",
     "reloaded = CFNetChangePipeline.from_artifact(artifact_dir, weights_dir=WEIGHTS_DIR, device=pipe.device)",
-    "assert parity['f1_diff'] < 1e-3 and parity['max_abs_map_diff'] < 1e-2",
+    "if not (parity['f1_diff'] < 1e-3 and parity['max_abs_map_diff'] < 1e-2):",
+    "raise RuntimeError(f'Reload parity failed: {parity}.",
+    # CFN-M3: a failed export never leaves an earlier run's result.json behind
+    "Path('outputs/cfnet_change_detection_result.json').unlink(missing_ok=True)",
+    "print({'run_summary': run_summary})",
     "'served_from_pickle': False",
     "'remote_code_executed': False",
     "'data_base_url': CORPUS_BASE_URL",
@@ -91,7 +109,51 @@ MARKDOWN_MARKERS = (
     "Split by scene, not by crop",
     "sample-sanity",
     "Google Earth",
+    # CFN-M2 / CFN-M3 / CFN-M4 / CFN-m3 (review 2026-10-02)
+    "**Every pass starts from the pretrained model.**",
+    "**Adaptation always starts from the pretrained model.**",
+    "**How the kept epoch is chosen.**",
+    "is not, on its own, evidence that anything improved",
+    "at least **7 distinct pairs**",
+    "Runtime → Run after",
+    "`LEVIR-CD-processed.tar.gz` of the Hugging Face dataset `wifibk/CFNet_Datasets`",
 )
+# Learner-facing text the review fixes removed; it must not come back (CFN-M1 restart / in-kernel install, CFN-M2 the
+# noise read as selection working, CFN-M3/M4 the re-run instruction and the wrong BYOD minimum, CFN-m2 unlabelled
+# timings, CFN-m3 the model-only external-access statement, CFN-m1 doubled braces).
+STALE_MARKDOWN = (
+    "the cell stops with a restart instruction",
+    "installed directly — there is no repository clone",
+    "the sign that a small learning rate and validation selection are doing their job",
+    "while the frozen model keeps the kept epoch",
+    "re-run from that cell",
+    "at least four pairs",
+    "a CPU a few minutes",
+    "about a minute on a CPU",
+    "in the build record 0.9352 and 0.8782, precision 0.9424",
+    "the Hugging Face Hub only",
+    "{{",
+    "}}",
+)
+# The guided layer (NOTEBOOK_SPEC 2.2 §3.5, GDL1-GDL15; review CFN-M5): each marker with its minimum count.
+GUIDED_MARKERS = (
+    ("**Who this is for.**", 1),
+    ("**Input → Model → Output.**", 1),
+    ("**How to use this notebook.**", 1),
+    ("**Roadmap:**", 1),
+    ("**Predict before running:**", 5),
+    ("**What to notice:**", 5),
+    ("<summary>Check your reasoning</summary>", 6),
+    ("## 9. Your turn — change one thing", 1),
+    ("**Predict → Change → Run → Observe → Explain**", 1),
+    ("## Troubleshooting", 1),
+    ("## Glossary", 1),
+    ("## Conclusion (your notes)", 1),
+    ("> **Infrastructure.**", 3),
+)
+GLOSSARY_TERMS = ("Change map", "All-unchanged baseline", "F1 / IoU", "Content-consistency terms", "Epoch / epoch 0", "Validation loss / draw seed")
+# CFN-M3: these sections must reset the pipeline to the pretrained model before they use `pipe` (section -> marker).
+RESET_SECTIONS = (5, 6)
 # Direct-library use that must stay inside the carried module cells (G2).
 FORBIDDEN_OUTSIDE_MODULE = (
     "from huggingface_hub import",
@@ -118,10 +180,10 @@ FORBIDDEN_OUTSIDE_MODULE = (
 # ---------------------------------------------------------------------------
 # Shared checks. Everything below is source/structure validation only. Passing
 # these checks is NOT clean-runtime execution evidence under DIMER Notebook
-# Specification 2.0; see docs/release-verification.md for the release gate.
+# Specification 2.2; see docs/release-verification.md for the release gate.
 # ---------------------------------------------------------------------------
 
-NOTEBOOK_SPEC = "2.0"
+NOTEBOOK_SPEC = "2.2"
 ALLOWED_PROFILES = {"E2E", "ARTIFACT-INFERENCE", "TASK-INFERENCE", "MULTI-CAPABILITY", "SMOKE"}
 STATUS_TOKENS = ("Candidate", "Release-grade")
 PLACEHOLDER = re.compile(r"\b(TODO|TBD|FIXME)\b|Insert text here|Tooltip:", re.I)
@@ -605,8 +667,16 @@ def _validate_bootstrap_guard(path: Path, code_cells: list[tuple[int, str, ast.M
     _check(raises, f"{path.name}: install cell must raise RuntimeError when already-imported packages change")
 
 
+def _section_code(code_cells: list[tuple[int, str, ast.Module]], cells: list[dict], number: int) -> str:
+    """Comment-stripped code of the first code cell after the markdown cell holding `## <number>. `."""
+    heading = next((i for i, c in enumerate(cells) if c.get("cell_type") == "markdown" and f"## {number}. " in _cell_source(c)), None)
+    _check(heading is not None, f"no '## {number}.' section in the tutorial notebook")
+    source = next((s for i, s, _t in code_cells if i > heading), "")
+    return _strip_comments(source)
+
+
 def _validate_notebook_content(
-    path: Path, code_cells: list[tuple[int, str, ast.Module]], markdown: str, embedded: list[int]
+    path: Path, code_cells: list[tuple[int, str, ast.Module]], markdown: str, embedded: list[int], notebook_cells: list[dict]
 ) -> None:
     model_id, _revision = _package_identity()
     stripped = {index: _strip_comments(source) for index, source, _ in code_cells}
@@ -616,8 +686,34 @@ def _validate_notebook_content(
     _check(not missing, f"{path.name}: missing required source markers: {missing}")
     present = [label for label, pattern in FORBIDDEN_PATTERNS if pattern.search(code)]
     _check(not present, f"{path.name}: forbidden/insecure source: {present}")
-    leaked = [marker for marker in FORBIDDEN_OUTSIDE_MODULE if marker in outside]
+    # The kernel install cell downloads the pinned uv wheel and verifies its size and SHA-256 (CFN-M1); it is the only
+    # cell outside the carried modules allowed to use urllib.request.
+    kernel = {index for index, source, _tree in code_cells if "# dimer: kernel cell" in source}
+    learner = "\n".join(text for index, text in stripped.items() if index not in embedded and index not in kernel)
+    kernel_raw = [source for index, source, _tree in code_cells if index in kernel]
+    leaked = [marker for marker in FORBIDDEN_OUTSIDE_MODULE if marker in learner]
+    leaked += [m for m in FORBIDDEN_OUTSIDE_MODULE if m != "urllib.request" and any(m in _strip_comments(k) for k in kernel_raw)]
     _check(not leaked, f"{path.name}: direct library use outside the carried module cell (G2): {leaked}")
+    _check(len(kernel) == 2, f"{path.name}: exactly two kernel cells (isolated install and router) are expected (CFN-M1)")
+    install = next((k for k in kernel_raw if "LOCK_TEXT = r" in k), "")
+    for needed in ("'--managed-python'", "'--require-hashes'", "'--only-binary'", "':all:'", "UV_SHA256", "LOCK_SHA256", "platform.machine() != 'x86_64'"):
+        _check(needed.replace("'", '"') in install, f"{path.name}: the isolated install cell must use {needed} (CFN-M1)")
+    _check("_ip.input_transformers_cleanup.append(_route_to_isolated_runtime)" in "\n".join(kernel_raw), f"{path.name}: later cells must be routed to the isolated environment (CFN-M1)")
+    stale = [marker for marker in STALE_MARKDOWN if marker in markdown]
+    _check(not stale, f"{path.name}: stale learner-facing text: {stale}")
+    _check("\nassert " not in "\n" + learner, f"{path.name}: learner cells must not use a bare assert (CFN-M3: a failure must name its cause)")
+    short = [(marker, markdown.count(marker), least) for marker, least in GUIDED_MARKERS if markdown.count(marker) < max(least, 1)]
+    _check(not short, f"{path.name}: guided layer incomplete (marker, found, needed): {short}")
+    glossary = markdown.split("## Glossary", 1)[-1].split("## Conclusion", 1)[0]
+    missing_terms = [term for term in GLOSSARY_TERMS if f"- **{term}" not in glossary]
+    _check(not missing_terms, f"{path.name}: glossary is missing {missing_terms} (CFN-M5)")
+    for number in RESET_SECTIONS:
+        code_after = _section_code(code_cells, notebook_cells, number)
+        first_use = code_after.find("pipe.")
+        _check(
+            first_use != -1 and code_after.startswith("pipe.reset_to_pretrained()", first_use),
+            f"{path.name}: Section {number} must call pipe.reset_to_pretrained() before any other use of pipe (CFN-M3)",
+        )
     _check(
         f"pipe = {MODEL_LOAD_EXPR}" in outside,
         f"{path.name}: must load through {MODEL_LOAD_EXPR} (INF1)",
@@ -645,7 +741,7 @@ def validate_notebooks() -> None:
     _model_id, revision = _package_identity()
     _validate_identity(path, code_cells, embedded, revision)
     _validate_parity(path, notebook, code_cells, build)
-    _validate_notebook_content(path, code_cells, markdown, embedded)
+    _validate_notebook_content(path, code_cells, markdown, embedded, notebook.get("cells", []))
     registry = _read(tutorials / "README.md")
     _check(f"`{path.name}`" in registry, f"{path.name} missing from tutorials/README.md")
     _check(f"`{EXPECTED_PROFILE}`" in registry, f"tutorials/README.md must record `{EXPECTED_PROFILE}`")
