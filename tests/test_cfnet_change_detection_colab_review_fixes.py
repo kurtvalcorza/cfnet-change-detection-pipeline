@@ -310,10 +310,10 @@ def test_section4_byod_minimum_set_passes_and_probes_name_their_condition(tmp_pa
 
 def test_section4_upload_guard_and_missing_path(tmp_path, monkeypatch, forbid_model_imports):
     source, namespace = _section4_namespace(tmp_path, monkeypatch, upload=lambda: {})
-    with pytest.raises(ValueError, match=r"Upload exactly one \.zip file \(received 0\)"):
+    with pytest.raises(ValueError, match=r"upload exactly one \.zip file \(received 0\)"):
         exec(compile(source, "<section 4>", "exec"), namespace)
     source, namespace = _section4_namespace(tmp_path, monkeypatch, byod_path=str(tmp_path / "nope.zip"))
-    with pytest.raises(FileNotFoundError, match="does not exist"):
+    with pytest.raises(ValueError, match="does not exist"):
         exec(compile(source, "<section 4>", "exec"), namespace)
     source, namespace = _section4_namespace(tmp_path, monkeypatch, byod_path=str(_zip(_write_byod(tmp_path / "six", synthetic_records(6)), tmp_path / "six.zip")))
     with pytest.raises(ValueError, match="needs at least 7 distinct pairs"):
