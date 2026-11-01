@@ -110,6 +110,77 @@ def test_a_sample_path_failure_still_raises_unchanged(tmp_path, monkeypatch):
     assert not getattr(info.value, "dimer_refusal", False)
 
 
+# ---- the catch is narrow: only bad input is refused; an internal TypeError/OSError keeps its traceback ------------
+
+
+def test_the_byod_catch_is_narrow_in_the_notebook_source():
+    src = CELLS[SEC4].split("print({'data_source'", 1)[0]  # the BYOD try block; the probes below it are a separate demo
+    assert "except (TypeError" not in src and "except TypeError" not in src
+    assert "\nexcept ValueError as exc:\n    if not USE_BYOD:\n        raise" in src
+    assert src.count("except (OSError, zipfile.BadZipFile) as exc:") == 1 and "except OSError" not in src
+    assert "        try:\n            byod_records = load_byod_dataset(byod_path)\n        except (OSError, zipfile.BadZipFile) as exc:\n" in src
+
+
+def test_a_corrupt_zip_member_is_still_one_refused_line(tmp_path, monkeypatch):
+    archive = _zip(_write_byod(tmp_path / "data", synthetic_records(7)), tmp_path / "crc.zip")
+    payload = bytearray(archive.read_bytes())
+    at = payload.index(b"id,before,after,label") + 3  # inside the stored pairs.csv: its CRC-32 no longer matches
+    payload[at] ^= 0x01
+    archive.write_bytes(bytes(payload))
+    line = _refusal(tmp_path, monkeypatch, byod_path=str(archive))
+    assert line.startswith("Refused: crc.zip: the dataset cannot be read (BadZipFile: "), line
+
+
+def test_an_unreadable_dataset_is_still_one_refused_line(tmp_path, monkeypatch):
+    folder = _write_byod(tmp_path / "data", synthetic_records(7))
+    source, namespace = _section4_namespace(tmp_path, monkeypatch, byod_path=str(folder))
+
+    def unreadable(path):
+        raise PermissionError(13, "Permission denied", str(path))
+
+    namespace["load_byod_dataset"] = unreadable
+    with pytest.raises(ValueError) as info:
+        exec(compile(source, "<section 4>", "exec"), namespace)
+    lines = info.value._render_traceback_()
+    assert len(lines) == 1 and lines[0].startswith("Refused: data: the dataset cannot be read (PermissionError: "), lines
+
+
+@pytest.mark.parametrize("error", [TypeError("internal helper bug"), OSError("internal I/O bug")], ids=["TypeError", "OSError"])
+def test_an_internal_error_after_the_loader_keeps_its_traceback(tmp_path, monkeypatch, error):
+    import traceback
+
+    folder = _write_byod(tmp_path / "data", synthetic_records(7))
+    source, namespace = _section4_namespace(tmp_path, monkeypatch, byod_path=str(folder))
+    earlier = tmp_path / "outputs" / f"{STEM}_sample_pairs.csv"
+    earlier.parent.mkdir(exist_ok=True)
+    earlier.write_text("earlier run\n", encoding="utf-8")
+    namespace["train_records"] = "old"
+
+    def broken_manifest(splits):
+        raise error
+
+    namespace["dataset_manifest"] = broken_manifest
+    with pytest.raises(type(error)) as info:
+        exec(compile(source, "<section 4>", "exec"), namespace)
+    assert info.value is error and not getattr(info.value, "dimer_refusal", False)
+    rendered = "".join(traceback.format_exception(info.value))
+    assert rendered.startswith("Traceback") and "broken_manifest" in rendered and "Refused:" not in rendered
+    assert earlier.exists() and namespace["byod_records"]  # nothing is cleared for an internal error
+
+
+def test_a_typeerror_inside_the_loader_is_not_turned_into_a_refusal(tmp_path, monkeypatch):
+    folder = _write_byod(tmp_path / "data", synthetic_records(7))
+    source, namespace = _section4_namespace(tmp_path, monkeypatch, byod_path=str(folder))
+
+    def buggy_loader(path):
+        raise TypeError("loader bug")
+
+    namespace["load_byod_dataset"] = buggy_loader
+    with pytest.raises(TypeError, match="loader bug") as info:
+        exec(compile(source, "<section 4>", "exec"), namespace)
+    assert not getattr(info.value, "dimer_refusal", False)
+
+
 WORKER_SETUP = [f"import sys; sys.path.insert(0, {str(ROOT / 'src')!r})", "from cfnet_change_detection_pipeline import *"]
 BAD_NAME, BAD_BYTES, BAD_RULE, DISCARDED = "hostname.zip", b"not a zip", "hostname.zip", "train_records"
 _UNUSED = types
